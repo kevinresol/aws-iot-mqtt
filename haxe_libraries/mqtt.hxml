@@ -1,0 +1,6 @@
+# @install: lix --silent download "https://github.com/kevinresol/mqtt/archive/417ef83721c0959bdba191a57f464da8987b322b.tar.gz" into mqtt/0.0.0/github/417ef83721c0959bdba191a57f464da8987b322b
+-D mqtt=0.0.0
+-cp ${HAXESHIM_LIBCACHE}/mqtt/0.0.0/github/417ef83721c0959bdba191a57f464da8987b322b/src
+
+-lib tink_core
+-lib tink_chunk
