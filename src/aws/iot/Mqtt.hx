@@ -1,6 +1,7 @@
 package aws.iot;
 
 import mqtt.*;
+import mqtt.Config;
 import mqtt.Client;
 import tink.Chunk;
 
@@ -9,30 +10,24 @@ using tink.CoreApi;
 typedef Config = {endpoint:String, clientId:String, region:String, credentials:Credentials, topics:Array<String>};
 
 class Mqtt extends BaseClient {
-	var getConfig:Void->Promise<Config>;
-	var getClient:String->Config->Client;
 	var client:Client;
 	
-	public function new(getConfig, getClient) {
-		super();
-		this.getConfig = getConfig;
-		this.getClient = getClient;
+	public function new(getIotConfig:Void->Promise<Config>, getClient:ConfigGenerator->Client) {
+		super(null);
+		client = getClient(function() return getIotConfig().next(function(config):mqtt.Config {
+			return {
+				uri: SigV4Utils.getSignedUrl(config.endpoint, config.region, config.credentials),
+				clientId: config.clientId,
+				topics: config.topics,
+			}
+		}));
+		client.isConnected.bind(isConnectedState.set);
+		client.message.handle(messageTrigger.trigger);
+		client.error.handle(errorTrigger.trigger);
 	}
 	
 	override function connect():Promise<Noise> {
-		if(client != null) return new Error('Already connected');
-		
-		return getConfig()
-			.next(function(config) {
-				var url = SigV4Utils.getSignedUrl(config.endpoint, config.region, config.credentials);
-				client = getClient(url, config);
-				client.isConnected.bind(isConnectedState.set);
-				client.message.handle(messageTrigger.trigger);
-				client.error.handle(errorTrigger.trigger);
-				
-				for(topic in config.topics) subscribe(topic);
-				return client.connect();
-			});
+		return client.connect();
 	}
 	
 	override function subscribe(topic:String, ?options:SubscribeOptions):Promise<QoS>
