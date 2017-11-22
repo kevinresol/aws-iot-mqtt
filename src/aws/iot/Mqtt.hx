@@ -2,18 +2,21 @@ package aws.iot;
 
 import mqtt.*;
 import mqtt.Client;
-import mqtt.clients.ReactNativePahoClient;
 import tink.Chunk;
 
 using tink.CoreApi;
 
+typedef Config = {endpoint:String, clientId:String, region:String, credentials:Credentials, topics:Array<String>};
+
 class Mqtt extends BaseClient {
-	var getConfig:Void->Promise<{endpoint:String, clientId:String, region:String, credentials:Credentials, topics:Array<String>}>;
+	var getConfig:Void->Promise<Config>;
+	var getClient:String->Config->Client;
 	var client:Client;
 	
-	public function new(getConfig) {
+	public function new(getConfig, getClient) {
 		super();
 		this.getConfig = getConfig;
+		this.getClient = getClient;
 	}
 	
 	override function connect():Promise<Noise> {
@@ -22,14 +25,7 @@ class Mqtt extends BaseClient {
 		return getConfig()
 			.next(function(config) {
 				var url = SigV4Utils.getSignedUrl(config.endpoint, config.region, config.credentials);
-				client = new ReactNativePahoClient({
-					uri: url, 
-					clientId: config.clientId,
-					storage: react.native.api.AsyncStorage,
-					useSSL: true,
-					timeout: 30000,
-					mqttVersion: 4,
-				});
+				client = getClient(url, config);
 				client.isConnected.bind(isConnectedState.set);
 				client.message.handle(messageTrigger.trigger);
 				client.error.handle(errorTrigger.trigger);
